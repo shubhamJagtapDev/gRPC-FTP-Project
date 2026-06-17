@@ -63,11 +63,11 @@
             <artifactId>ftp-service-proto</artifactId>
             <version>1.0.2</version>
         </dependency>
-<!--        <dependency>-->
-<!--            <groupId>com.jshubham</groupId>-->
-<!--            <artifactId>ftp-service-client</artifactId>-->
-<!--            <version>1.0.2</version>-->
-<!--        </dependency>-->
+        <dependency>
+            <groupId>com.jshubham</groupId>
+            <artifactId>ftp-service-client</artifactId>
+            <version>1.0.2</version>
+        </dependency>
     </dependencies>
 
     <build>

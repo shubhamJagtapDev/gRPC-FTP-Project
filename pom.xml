@@ -11,7 +11,8 @@
     <modules>
         <module>ftp-service-proto</module>
         <module>ftp-service</module>
-        <module>ftp_service_client</module>
+        <module>ftp-service-client</module>
+        <module>ftp-service-client-cli</module>
     </modules>
 
 
@@ -83,6 +84,13 @@
     <build>
         <finalName>ftp-project-${project.version}</finalName>
         <defaultGoal>install</defaultGoal>
+        <extensions>
+            <extension>
+                <groupId>kr.motd.maven</groupId>
+                <artifactId>os-maven-plugin</artifactId>
+                <version>1.6.2</version>
+            </extension>
+        </extensions>
         <pluginManagement>
             <plugins>
                 <plugin>
