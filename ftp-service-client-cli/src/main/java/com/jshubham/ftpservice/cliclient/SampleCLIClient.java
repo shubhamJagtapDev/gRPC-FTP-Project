@@ -19,7 +19,38 @@ public class SampleCLIClient {
     private static final String SERVER = "server";
 
     private void addFile(String server, String fileToAdd, String destFilename) {
-        logger.info("addFile method called to file {} with the destination filename {}", fileToAdd, destFilename);
+        try {
+            CountDownLatch countDownLatch = new CountDownLatch(1);
+            FTPServiceClient ftpServiceClient;
+            FTPServiceClient.FTPServiceClientBuilder builder = new FTPServiceClient.FTPServiceClientBuilder();
+            ftpServiceClient = builder.setServerAddress(server).build();
+
+            StreamObserver<Result> responseObserver = new StreamObserver<Result>() {
+                @Override
+                public void onNext(Result resultResponse) {
+                    logger.info("Received result from server: {}", resultResponse.getStatus());
+                    countDownLatch.countDown();
+                }
+
+                @Override
+                public void onError(Throwable t) {
+                    logger.error("Error from the server: {} \n {}" , t.toString(), t.getMessage());
+                    countDownLatch.countDown();
+                }
+
+                @Override
+                public void onCompleted() {
+                    logger.info("Completed the add file call");
+                    countDownLatch.countDown();
+                }
+            };
+
+            ftpServiceClient.addFile(fileToAdd, destFilename, responseObserver);
+
+            countDownLatch.await(5, TimeUnit.MINUTES);
+        } catch (IOException | InterruptedException e) {
+            logger.info("Encountered exception {}", e.toString());
+        }
     }
 
     private void deletedFile(String server, String fileToDelete) {
