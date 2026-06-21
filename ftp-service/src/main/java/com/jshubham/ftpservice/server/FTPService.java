@@ -11,6 +11,7 @@ import org.javatuples.Pair;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.*;
 import java.security.NoSuchAlgorithmException;
@@ -23,6 +24,49 @@ public class FTPService extends FTPServiceGrpc.FTPServiceImplBase    {
     public FTPService(ServerConfiguration serverConfiguration) {
         destinationDirPath = new File(serverConfiguration.getDestinationDirectoryOnServer()).toPath();
         tmpPath = new File(serverConfiguration.getTempWritePath()).toPath();
+    }
+
+    @Override
+    public void readFile(MetaData request, StreamObserver<ReadFileResult> responseObserver) {
+        String filename = request.getName();
+        logger.info("Received request to read file {}", filename);
+
+        Path path = Paths.get(filename);
+        Path sourcePath = destinationDirPath.resolve(path);
+
+        if (!Files.exists(sourcePath)) {
+            logger.info("File {} does not exist", filename);
+            responseObserver.onNext(ReadFileResult.newBuilder()
+                    .setMessage("File " + filename + " does not exist")
+                    .build());
+        }
+
+        try (InputStream inputStream = Files.newInputStream(sourcePath)) {
+            try {
+                byte[] bytes = new byte[1024]; // 1KiB chuck size
+                int size;
+                while ((size = inputStream.read(bytes)) > 0) {
+                    byte[] hash = ServerUtils.computeChecksum(bytes, size);
+                    FileChuck fileChuck = FileChuck.newBuilder()
+                            .setChecksum(ByteString.copyFrom(hash, 0, hash.length))
+                            .setContent(ByteString.copyFrom(bytes, 0, size))
+                            .build();
+
+                    responseObserver.onNext(ReadFileResult.newBuilder()
+                            .setFileChuck(fileChuck)
+                            .build());
+                }
+                responseObserver.onCompleted();
+                logger.info("Completed request to read file {}", filename);
+
+            } catch (IOException e) {
+                logger.error("IO exception happened while reading file {} exception : {}", filename, e.getMessage());
+                responseObserver.onError(e);
+            }
+        } catch (IOException e) {
+            logger.error("IO exception happened while reading file using input stream {} exception : {}", filename, e.getMessage());
+            responseObserver.onError(e);
+        }
     }
 
     @Override

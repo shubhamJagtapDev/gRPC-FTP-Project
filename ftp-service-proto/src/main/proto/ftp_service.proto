@@ -14,6 +14,9 @@ service FTPService {
   // Adds a file in the destination directory of server
   rpc addFile(stream AddFileRequest) returns (Result) {};
 
+  // Reads a file from the destination directory of the server.
+  rpc readFile (MetaData) returns (stream ReadFileResult) {};
+
 }
 
 // message types
@@ -50,4 +53,12 @@ enum Status {
 message Result {
   string message = 1;
   Status status = 2;
+}
+
+message ReadFileResult {
+  oneof request {
+    string message = 1;
+    FileChuck fileChuck = 2;
+
+  }
 }

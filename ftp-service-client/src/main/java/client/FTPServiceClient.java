@@ -13,6 +13,7 @@ import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Iterator;
 
 import static utils.ClientConstants.*;
 
@@ -28,6 +29,7 @@ import static utils.ClientConstants.*;
  */
 public class FTPServiceClient implements AutoCloseable{
     private FTPServiceGrpc.FTPServiceStub asyncStub;
+    private FTPServiceGrpc.FTPServiceBlockingStub blockingStub;
     private ManagedChannel channel;
     private int chuckSizeInBytes;
 
@@ -48,6 +50,7 @@ public class FTPServiceClient implements AutoCloseable{
                                         .build();
 
         asyncStub = FTPServiceGrpc.newStub(channel);
+        blockingStub = FTPServiceGrpc.newBlockingStub(channel);
     }
 
     /**
@@ -143,6 +146,39 @@ public class FTPServiceClient implements AutoCloseable{
             addFileRequestObserver.onError(new Exception(ioException.getMessage()));
         }
     }
+
+    /**
+     * This a non-blocking or asynchronous version of readFile RPC method
+     * This method transfers a given file with name fileNameToRead from the server's
+     * destination directory, if present. A large file is transferred in chunks.
+     * In case the file doesn't exist a String message is returned.
+     *
+     *
+     * @param fileName - Filename on server to be downloaded/read
+     * @param responseStreamObserver - Stream Observer to stream the chunks of the file back to client
+     */
+
+    public void readFile(String fileName, StreamObserver<ReadFileResult> responseStreamObserver) {
+        MetaData metaData = MetaData.newBuilder()
+                .setName(fileName)
+                .build();
+        asyncStub.readFile(metaData, responseStreamObserver);
+    }
+
+    /**
+     * This is the blocking/synchronus version of readFile RPC method
+     * It makes use of blocking stub which will block the calling thread
+     * until the server has sent all the responses or an error occurs.
+     * We iterate over the responses using the `Iterator` and process each response in sequence
+     * @param filename
+     * @return Iterator<ReadFileResult> Returns a Iterable collection of either the error message or the file chunks responses
+     * from the server
+     */
+    public Iterator<ReadFileResult> readFileUsingBlockingStub(String filename) {
+        MetaData metaData = MetaData.newBuilder().setName(filename).build();
+        return blockingStub.readFile(metaData);
+    }
+
     /**
      * Use the client builder for instantiating FTPServiceClient objects. All
      * values are set to default when no parameters are overridden.
