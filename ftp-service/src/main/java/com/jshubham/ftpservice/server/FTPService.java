@@ -14,7 +14,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.file.*;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
 
 public class FTPService extends FTPServiceGrpc.FTPServiceImplBase    {
     private static final Logger logger = LogManager.getLogger(FTPService.class.getName());
@@ -24,6 +26,75 @@ public class FTPService extends FTPServiceGrpc.FTPServiceImplBase    {
     public FTPService(ServerConfiguration serverConfiguration) {
         destinationDirPath = new File(serverConfiguration.getDestinationDirectoryOnServer()).toPath();
         tmpPath = new File(serverConfiguration.getTempWritePath()).toPath();
+    }
+
+    @Override
+    public StreamObserver<MetaData> getFileAttributes(StreamObserver<FileAttributesResult> responseObserver) {
+
+        return new StreamObserver<MetaData>() {
+            // called whenever client sends a message
+            @Override
+            public void onNext(MetaData request) {
+                try {
+                    Path fileName = Paths.get(request.getName());
+                    Path filePath = destinationDirPath.resolve(fileName);
+                    logger.info("Received request for file attributes of {}", request.getName());
+                    if(!Files.exists(filePath)) {
+                        //file does not exist. Set message field of FileAttributesResult
+
+                        //To handle the file not found scenario without terminating the stream,
+                        // we include the error response as part of the stream message itself
+                        responseObserver.onNext(FileAttributesResult.newBuilder()
+                                        .setMessage("File " + fileName + "does not exists")
+                                .build());
+                    } else {
+                        //file exists. Read the attributes and set the FileAttributes field of FileAttributesResult
+                        BasicFileAttributes attributes = Files.readAttributes(filePath, BasicFileAttributes.class);
+                        FileAttributes fileAttributes = FileAttributes.newBuilder()
+                                .setName(fileName.toString())
+                                .setSize(attributes.size())
+                                .setCreationTime(Instant.ofEpochMilli(attributes.creationTime().toMillis()).toString())
+                                .setModificationTime(Instant.ofEpochMilli(attributes.lastModifiedTime().toMillis()).toString())
+                                .build();
+
+                        FileAttributesResult fileAttributesResult = FileAttributesResult.newBuilder()
+                                .setFileAttributes(fileAttributes)
+                                .build();
+
+                        responseObserver.onNext(fileAttributesResult);
+                        logger.info("Request to get the attributes for {} completed", fileName.toString());
+                    }
+                } catch (IOException e) {
+                   /*
+                   Several issues may arise in this process.
+                     1. The file might exist but be inaccessible due to permission issues.
+                     2. There might be underlying file system errors, such as disk failures or network problems with
+                        network-mounted file systems, that prevent successful operations.
+                     3. The provided file path might be malformed or invalid, causing an IOException
+                        when attempting to resolve or access the path.
+                     4. During the process of reading file attributes, the application might encounter
+                        access-denied errors if it lacks the necessary permissions.
+                     5. The file might get deleted or moved by another process between
+                     the existence check and attribute reading
+                    */
+
+                    responseObserver.onError(e);
+                }
+            }
+
+            // called when an error is received from the client
+            @Override
+            public void onError(Throwable t) {
+                logger.error("Reading of file attributes failed due to exception {} ", t.toString());
+            }
+
+            // called when client is done sending request messages
+            @Override
+            public void onCompleted() {
+                // in response server signals completion of the requests
+                responseObserver.onCompleted();
+            }
+        };
     }
 
     @Override

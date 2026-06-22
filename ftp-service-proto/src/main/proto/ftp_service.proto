@@ -17,6 +17,9 @@ service FTPService {
   // Reads a file from the destination directory of the server.
   rpc readFile (MetaData) returns (stream ReadFileResult) {};
 
+  // Returns the file attributes of the requested file on the server
+  rpc getFileAttributes (stream MetaData) returns (stream FileAttributesResult);
+
 }
 
 // message types
@@ -34,6 +37,20 @@ message AddFileRequest {
     MetaData metadata = 1;
     FileChuck fileChuck = 2;
   }
+}
+
+message FileAttributesResult {
+  oneof request {
+    string message = 1;
+    FileAttributes fileAttributes = 2;
+  }
+}
+
+message FileAttributes {
+  string name = 1;
+  int64 size = 2;
+  string creationTime = 3;
+  string modificationTime = 4;
 }
 
 // enum type
