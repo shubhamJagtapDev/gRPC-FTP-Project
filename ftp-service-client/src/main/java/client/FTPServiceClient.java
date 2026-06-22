@@ -15,6 +15,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Iterator;
 
+import static java.lang.Thread.sleep;
 import static utils.ClientConstants.*;
 
 /**
@@ -70,6 +71,39 @@ public class FTPServiceClient implements AutoCloseable{
         if(channel != null) {
             channel.shutdown();
         }
+    }
+
+    /**
+     * This method gets the file attributes of the fileNames from server if they are present on it.
+     * In case file doesn't exist a String message is returned
+     * @param fileNames  Array of strings representing the names of the files for which
+     *                  we want to retrieve attributes from the server.
+     * @param resultStreamObserver It is a StreamObserver that allows the client to
+     *                             receive asynchronous responses from the server.
+     *                             It will handle the server’s response as FileAttributesResult messages
+     */
+    public void getFileAttributes(String[] fileNames, StreamObserver<FileAttributesResult> resultStreamObserver) {
+        // Creating stream request observer to send stream of multiple requests
+        StreamObserver<MetaData> requestObserver = asyncStub.getFileAttributes(resultStreamObserver);
+
+        // sending requests
+        for(String fileName : fileNames) {
+            System.out.println("Sending request to get attributes of " + fileName);
+            requestObserver.onNext(MetaData.newBuilder()
+                            .setName(fileName)
+                    .build());
+            /* try {
+                // sleeping after each request to make process of streaming more clear
+                sleep(250);
+            } catch (InterruptedException e) {
+                System.out.println("Calling thread interrupted");
+                throw new RuntimeException(e);
+            }*/
+        }
+
+        // signaling server that the client is done with sending the data and the transmission is complete
+        requestObserver.onCompleted();
+
     }
 
     /**
