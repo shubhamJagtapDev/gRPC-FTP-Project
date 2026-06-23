@@ -11,6 +11,7 @@ import org.apache.commons.cli.*;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.jspecify.annotations.NonNull;
+import utils.ClientConfiguration;
 
 import java.io.BufferedOutputStream;
 import java.io.IOException;
@@ -32,13 +33,25 @@ public class SampleCLIClient {
     private static final String ATTR = "attr";
     private static final String BLOCKING = "blocking";
     private static final String SERVER = "server";
+    private static final String SECURE = "secure";
 
-    private void addFile(String server, String fileToAdd, String destFilename) {
+    private final ClientConfiguration configuration;
+
+    public SampleCLIClient() {
+        configuration = new ClientConfiguration();
+    }
+
+    private void addFile(String server, String fileToAdd, String destFilename, boolean secure) {
         try {
             CountDownLatch countDownLatch = new CountDownLatch(1);
             FTPServiceClient ftpServiceClient;
-            FTPServiceClient.FTPServiceClientBuilder builder = new FTPServiceClient.FTPServiceClientBuilder();
-            ftpServiceClient = builder.setServerAddress(server).build();
+            FTPServiceClient.FTPServiceClientBuilder builder = new FTPServiceClient.FTPServiceClientBuilder(
+                    configuration.getClientCertPath(),
+                    configuration.getClientKeyPath(),
+                    configuration.getCAPath()
+            ).setServerAddress(server);
+
+            ftpServiceClient = secure ? builder.build() : builder.runInInsecureMode().build();
 
             StreamObserver<Result> responseObserver = new StreamObserver<Result>() {
                 @Override
@@ -68,12 +81,17 @@ public class SampleCLIClient {
         }
     }
 
-    private void deletedFile(String server, String fileToDelete) {
+    private void deletedFile(String server, String fileToDelete, boolean secure) {
         try {
             CountDownLatch countDownLatch = new CountDownLatch(1);
             FTPServiceClient ftpServiceClient;
-            FTPServiceClient.FTPServiceClientBuilder builder = new FTPServiceClient.FTPServiceClientBuilder();
-            ftpServiceClient = builder.setServerAddress(server).build();
+            FTPServiceClient.FTPServiceClientBuilder builder = new FTPServiceClient.FTPServiceClientBuilder(
+                    configuration.getClientCertPath(),
+                    configuration.getClientKeyPath(),
+                    configuration.getCAPath()
+            ).setServerAddress(server);
+
+            ftpServiceClient = secure ? builder.build() : builder.runInInsecureMode().build();
 
             StreamObserver<Result> responseObserver = new StreamObserver<Result>() {
                 @Override
@@ -102,13 +120,17 @@ public class SampleCLIClient {
         }
     }
 
-    private void readFile(String server, String fileName) {
+    private void readFile(String server, String fileName, boolean secure) {
         try {
             CountDownLatch countDownLatch = new CountDownLatch(1);
             FTPServiceClient ftpServiceClient;
-            FTPServiceClient.FTPServiceClientBuilder builder = (new FTPServiceClient.FTPServiceClientBuilder());
+            FTPServiceClient.FTPServiceClientBuilder builder = new FTPServiceClient.FTPServiceClientBuilder(
+                    configuration.getClientCertPath(),
+                    configuration.getClientKeyPath(),
+                    configuration.getCAPath()
+            ).setServerAddress(server);
 
-            ftpServiceClient = builder.setServerAddress(server).build();
+            ftpServiceClient = secure ? builder.build() : builder.runInInsecureMode().build();
 
             logger.info("Initiating read call with the server");
 
@@ -214,12 +236,16 @@ public class SampleCLIClient {
         return downloadedName;
     }
 
-    private void readFileSynchronously(String server, String filename) {
+    private void readFileSynchronously(String server, String filename, boolean secure) {
         try {
             FTPServiceClient ftpServiceClient;
-            FTPServiceClient.FTPServiceClientBuilder builder = (new FTPServiceClient.FTPServiceClientBuilder())
-                    .setServerAddress(server);
-            ftpServiceClient = builder.build();
+            FTPServiceClient.FTPServiceClientBuilder builder = new FTPServiceClient.FTPServiceClientBuilder(
+                    configuration.getClientCertPath(),
+                    configuration.getClientKeyPath(),
+                    configuration.getCAPath()
+            ).setServerAddress(server);
+
+            ftpServiceClient = secure ? builder.build() : builder.runInInsecureMode().build();
 
             logger.info("Initiating synchronous read call with the server");
             System.out.println("Initiating synchronous read call with the server");
@@ -248,14 +274,17 @@ public class SampleCLIClient {
         }
     }
 
-    private void getFileAttrs(String server, String[] fileNames) {
+    private void getFileAttrs(String server, String[] fileNames, boolean secure) {
         try {
             CountDownLatch countDownLatch = new CountDownLatch(1);
             FTPServiceClient ftpServiceClient;
-            FTPServiceClient.FTPServiceClientBuilder builder = new FTPServiceClient.FTPServiceClientBuilder();
-            ftpServiceClient = builder.
-                    setServerAddress(server)
-                    .build();
+            FTPServiceClient.FTPServiceClientBuilder builder = new FTPServiceClient.FTPServiceClientBuilder(
+                    configuration.getClientCertPath(),
+                    configuration.getClientKeyPath(),
+                    configuration.getCAPath()
+            ).setServerAddress(server);
+
+            ftpServiceClient = secure ? builder.build() : builder.runInInsecureMode().build();
 
             StreamObserver<FileAttributesResult> responseStreamObserver = new StreamObserver<FileAttributesResult>() {
                 @Override
@@ -307,6 +336,7 @@ public class SampleCLIClient {
 
             int optionsCount = cmdLine.getOptions().length;
             String server;
+            boolean secure = false;
 
             if(cmdLine.hasOption(SERVER)) {
                 server = cmdLine.getOptionValue(SERVER);
@@ -314,26 +344,33 @@ public class SampleCLIClient {
                 throw new ParseException("Missing server address");
             }
 
-            if(cmdLine.hasOption(ADD) && optionsCount == 3) {
+            if(cmdLine.hasOption(SECURE)) {
+                secure = true;
+                logger.info("working in secure mode...");
+            }else {
+                logger.info("working in IN-secure mode...");
+            }
+
+            if(cmdLine.hasOption(ADD) && (optionsCount == 3 || optionsCount == 4)) {
                 String fileToAdd = cmdLine.getOptionValue(ADD);
                 String outputFileName = cmdLine.getOptionValue(OUT);
-                (new SampleCLIClient()).addFile(server, fileToAdd, outputFileName);
-            } else if (cmdLine.hasOption(DEL) && optionsCount == 2) {
+                (new SampleCLIClient()).addFile(server, fileToAdd, outputFileName,secure);
+            } else if (cmdLine.hasOption(DEL) && (optionsCount == 2 || optionsCount == 3)) {
                 String fileToDelete = cmdLine.getOptionValue(DEL);
-                (new SampleCLIClient()).deletedFile(server, fileToDelete);
-            } else if (cmdLine.hasOption(READ) && optionsCount == 2) {
+                (new SampleCLIClient()).deletedFile(server, fileToDelete, secure);
+            } else if (cmdLine.hasOption(READ) && (optionsCount == 2 || optionsCount == 3 || optionsCount == 4)) {
                 String fileToRead = cmdLine.getOptionValue(READ);
                 if(cmdLine.hasOption(BLOCKING)) {
-                    (new SampleCLIClient()).readFileSynchronously(server, fileToRead);
+                    (new SampleCLIClient()).readFileSynchronously(server, fileToRead, secure);
                 }
-                (new SampleCLIClient()).readFile(server, fileToRead);
-            } else if (cmdLine.hasOption(ATTR) && optionsCount == 2) {
+                (new SampleCLIClient()).readFile(server, fileToRead, secure);
+            } else if (cmdLine.hasOption(ATTR) && (optionsCount == 2 || optionsCount == 3)) {
                 // Get all option values. This supports multiple values when passed as separate args
                 // e.g., -attr file1.txt file2.py, or inside a single quoted argument, e.g., -attr "file1.txt file2.py"
                 String[] rawValues = cmdLine.getOptionValues(ATTR);
                 List<String> fileNameList = getFileNameList(rawValues);
                 String[] fileNames = fileNameList.toArray(new String[0]);
-                (new SampleCLIClient()).getFileAttrs(server, fileNames);
+                (new SampleCLIClient()).getFileAttrs(server, fileNames, secure);
             } else {
                 // provided command-line arguments are incorrect or insufficient
                 // in this case we set the flag
@@ -398,6 +435,7 @@ public class SampleCLIClient {
                 .build());
         options.addOption(OUT, true, "destination filename when adding a file");
         options.addOption(BLOCKING, false, "read a file using a blocking stub");
+        options.addOption(SECURE, false, "create a secure connection");
         return options;
     }
 

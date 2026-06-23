@@ -1,5 +1,7 @@
 package utils;
 
+import java.io.File;
+import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
@@ -17,5 +19,36 @@ public class ClientUtils {
             throw new RuntimeException("MD5 algorithm not found. " + nsa);
         }
         return result;
+    }
+
+    public static File resolveCredFile(String path) throws IOException {
+        File file = new File(path);
+        if (file.exists() && file.isFile()) {
+            return file;
+        }
+
+        // Try common location offsets based on CWD
+        File[] fallbacks = new File[]{
+                new File("ftp-service", path),
+                new File("src/main/resources", path),
+                new File("ftp-service/src/main/resources", path),
+                new File("target", path),
+                new File("ftp-service/target", path)
+        };
+
+        for (File fallback : fallbacks) {
+            if (fallback.exists() && fallback.isFile()) {
+                return fallback;
+            }
+        }
+        // Build a helpful error message listing all attempted absolute paths
+        StringBuilder sb = new StringBuilder();
+        sb.append("Credential file not found at: ").append(file.getAbsolutePath()).append("\n");
+        sb.append("Also tried the following fallback locations:\n");
+        for (File fallback : fallbacks) {
+            sb.append("  - ").append(fallback.getAbsolutePath()).append("\n");
+        }
+        sb.append("Please verify that the file exists and that the working directory is set correctly.");
+        throw new java.io.FileNotFoundException(sb.toString());
     }
 }

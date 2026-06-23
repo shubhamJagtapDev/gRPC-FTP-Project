@@ -53,4 +53,17 @@ public class ServerConfiguration {
     public String getTempWritePath() {
         return properties.getProperty(ServerConstants.TEMP_WRITE_PATH);
     }
+
+    public String getCAPath() { return properties.getProperty(ServerConstants.CA_CERT_PATH); }
+
+    public String getServerCertPath() {
+        return properties.getProperty(ServerConstants.SERVER_CERT_PATH);
+    }
+
+    public String getServerKeyPath() {
+        return properties.getProperty(ServerConstants.SERVER_KEY_PATH);
+    }
+    public boolean getRunInInsecureMode() {
+        return Boolean.parseBoolean(properties.getProperty(ServerConstants.RUN_IN_INSECURE_MODE));
+    }
 }
